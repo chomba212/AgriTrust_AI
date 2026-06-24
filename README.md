@@ -229,5 +229,36 @@ License
 
 This project is developed for educational, innovation, and competition purposes under the Kenya AI Challenge 2026.
 
+## Local Development
+
+1. Backend
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+2. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+3. Open the frontend at `http://localhost:4173`
+
+The React application will call the Flask API at `http://localhost:5000/api` by default.
+
+## Implemented Features
+
+- Farmer trust scoring dashboard with explainable AI signals
+- Loan officer view with credit readiness, climate alerts, and cooperative data
+- Detailed farmer profile panels with repayment history, trust drivers, and recommendations
+- Graph AI-style risk reasoning and climate-aware underwriting signals
+- Flask backend with API endpoints for farmers, scorecard, climate intelligence, and recommendations
 
 “Building trust-driven finance for Africa's farmers, one relationship at a time.”
