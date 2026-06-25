@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --green-deep: #0a4a2e;
+  --green-mid: #1a7a4a;
+  --green-bright: #22c55e;
+  --green-light: #dcfce7;
+  --amber: #f59e0b;
+  --amber-light: #fef3c7;
+  --earth: #92400e;
+  --sky: #0ea5e9;
+  --sky-light: #e0f2fe;
+  --danger: #ef4444;
+  --danger-light: #fee2e2;
+  --surface: #f0f4f0;
+  --card: #ffffff;
+  --text-primary: #0f1f14;
+  --text-secondary: #4b7a5a;
+  --text-muted: #8aad96;
+  --border: #d1e8d8;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.badge-green { background: var(--green-light); color: var(--green-deep); }
+.badge-amber { background: var(--amber-light); color: var(--earth); }
+.badge-red { background: var(--danger-light); color: var(--danger); }
+.badge-sky { background: var(--sky-light); color: #0369a1; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  font-family: 'Inter', sans-serif;
+}
+
+.btn-primary { background: var(--green-mid); color: white; }
+.btn-primary:hover { background: var(--green-deep); }
+.btn-secondary { background: white; color: var(--text-primary); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--surface); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+input, select, textarea { font-family: 'Inter', sans-serif; font-size: 13px; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
