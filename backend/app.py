@@ -107,5 +107,91 @@ def serialize_farmer_detail(farmer: dict) -> dict:
         "score_breakdown":     score_breakdown(farmer),
     }
  
+@app.route("/api/agent", methods=["GET"])
+def agent_info():
+        """
+    Masumi discovery endpoint.
+    Describes what this agent does, its pricing, and input/output contract.
+    Register the URL of this endpoint when listing the agent on the network.
+    """
+    return jsonify({
+        "agent_id":      AGENT_ID,
+        "version":       AGENT_VERSION,
+        "name":          "AgriTrust Scoring Agent",
+        "description":   (
+            "Assesses smallholder farmer creditworthiness for Kenyan "
+            "agricultural lenders. Produces a trust score, risk flags, "
+            "and a recommendation memo for human loan-officer review."
+        ),
+        "capabilities": [
+            "trust_scoring",
+            "climate_risk_overlay",
+            "repayment_analysis",
+            "cooperative_verification",
+            "recommendation_memo",
+        ],
+        "inputs":  ["farmer_id"],
+        "outputs": ["trust_score", "trust_category", "score_breakdown",
+                    "recommendations", "next_steps", "explainability",
+                    "human_review_required"],
+        "limits": [
+            "Does not make final loan approval or denial decisions.",
+            "Requires human loan-officer review for scores 60–84.",
+            "Cannot access live bank records; uses mobile-money proxy data.",
+            "Climate data is regional, not field-level.",
+        ],
+        "payment": {
+            "network": "Masumi",
+            "token":   "ADA",
+            "per_call": "0.5 ADA",
+        },
+        "masumi_docs": "https://docs.masumi.network/",
+    })
+
+
+@app.route("/api/service-request", methods=["POST"])
+def service_request():
+    """
+    Step 1 of the Masumi payment flow.
+    Buyer calls this to declare intent; receives a job_id and escrow
+    instructions to submit on-chain before the agent does any work.
+ 
+    In a full Masumi integration this endpoint would:
+      1. Call the Masumi node to create an escrow contract.
+      2. Return the contract address and amount for the buyer to fund.
+      3. Watch for on-chain confirmation before releasing the result.
+ 
+    Marked as MOCKED — replace with real Masumi SDK call for testnet.
+    """
+    payload = request.get_json(silent=True) or {}
+    farmer_id = payload.get("farmer_id")
+ 
+    if not farmer_id:
+        return jsonify({"error": "farmer_id is required"}), 400
+ 
+    farmer = next((f for f in farmers if f["id"] == farmer_id), None)
+    if not farmer:
+        return jsonify({"error": f"Farmer {farmer_id} not found"}), 404
+ 
+    job_id = str(uuid.uuid4())
+ 
+    return jsonify({
+        "job_id":       job_id,
+        "agent_id":     AGENT_ID,
+        "farmer_id":    farmer_id,
+        "status":       "awaiting_payment",
+        "escrow": {
+            "note":    "MOCKED — replace with live Masumi escrow call",
+            "amount":  "0.5 ADA",
+            "network": "preprod",
+            "instructions": (
+                "Fund the escrow contract on-chain, then call "
+                "POST /api/recommendations with the transaction ID "
+                "in the X-Masumi-Escrow-Tx header."
+            ),
+        },
+        "masumi_explorer": "https://www.masumi.network/explorer",
+    }), 202
+
 
 
