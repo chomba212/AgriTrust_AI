@@ -265,6 +265,79 @@ def recommendations():
         },
     })
  
-# 
+
+@app.route("/api/audit", methods=["GET"])
+def get_audit_log():
+    """
+    Returns the full audit trail of paid recommendations.
+    In production, scope this to authenticated loan officers only.
+    """
+    return jsonify({
+        "agent_id":   AGENT_ID,
+        "total_calls": len(audit_log),
+        "entries":    audit_log,
+    })
+ 
+
+# Farmer endpoints
+
+ 
+@app.route("/api/farmers", methods=["GET"])
+def get_farmers():
+    return jsonify([serialize_farmer_summary(f) for f in farmers])
+ 
+ 
+@app.route("/api/farmers/<int:farmer_id>", methods=["GET"])
+def get_farmer(farmer_id):
+    farmer = next((f for f in farmers if f["id"] == farmer_id), None)
+    if not farmer:
+        return jsonify({"error": f"Farmer {farmer_id} not found"}), 404
+    return jsonify(serialize_farmer_detail(farmer))
+ 
+
+# Scorecard
+
+ 
+@app.route("/api/scorecard", methods=["GET"])
+def get_scorecard():
+    total  = len(farmers)
+    scores = [compute_trust_score(f) for f in farmers]
+ 
+    distribution = {
+        "strong":           sum(1 for s in scores if s >= 85),
+        "developing":       sum(1 for s in scores if 70 <= s < 85),
+        "needs_improvement":sum(1 for s in scores if s < 70),
+    }
+ 
+    return jsonify({
+        "farmer_count":       total,
+        "average_trust_score":round(sum(scores) / total),
+        "trust_distribution": distribution,
+        "approved_loans":     applications["approved"],
+        "pending_loans":      applications["pending"],
+        "declined_loans":     applications["declined"],
+        "loan_flow_change":   applications["last_month_change"],
+        "climate_events":     climate_data["climate_events"],
+        "weather_alerts":     climate_data["weather_alerts"],
+        "regional_risk":      climate_data["regional_risk"],
+        "recommended_actions":climate_data["recommended_actions"],
+    })
+ 
+
+# Climate
+
+ 
+@app.route("/api/climate", methods=["GET"])
+def get_climate():
+    return jsonify(climate_data)
+ 
+
+# Entry point
+
+ 
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
+ 
+
 
 
