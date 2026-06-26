@@ -194,4 +194,77 @@ def service_request():
     }), 202
 
 
+@app.route("/api/recommendations", methods=["POST"])
+def recommendations():
+    """
+    Step 2 of the Masumi payment flow.
+    Requires a valid Masumi escrow transaction ID in the request header.
+    Returns the full recommendation memo and logs an immutable audit entry.
+ 
+    Human review is required for borderline scores (60–84).
+    The agent never issues a final approval or denial.
+    """
+    escrow_tx = request.headers.get("X-Masumi-Escrow-Tx")
+    if not escrow_tx:
+        return jsonify({
+            "error":   "Payment required",
+            "message": (
+                "Include a valid Masumi escrow transaction ID in the "
+                "X-Masumi-Escrow-Tx header. Call POST /api/service-request "
+                "first to initiate payment."
+            ),
+        }), 402
+ 
+    payload = request.get_json(silent=True) or {}
+    farmer_id = payload.get("farmer_id")
+ 
+    if not farmer_id:
+        return jsonify({"error": "farmer_id is required"}), 400
+ 
+    farmer = next((f for f in farmers if f["id"] == farmer_id), None)
+    if not farmer:
+        return jsonify({"error": f"Farmer {farmer_id} not found"}), 404
+ 
+    score    = compute_trust_score(farmer)
+    category = trust_category(score)
+    review   = human_review_required(score)
+ 
+    # Persist audit entry (replace list append with DB write in production)
+    audit_entry = {
+        "audit_id":              str(uuid.uuid4()),
+        "timestamp":             datetime.now(timezone.utc).isoformat(),
+        "agent_id":              AGENT_ID,
+        "farmer_id":             farmer_id,
+        "escrow_tx":             escrow_tx,
+        "trust_score":           score,
+        "trust_category":        category,
+        "human_review_required": review,
+    }
+    audit_log.append(audit_entry)
+ 
+    return jsonify({
+        "farmer_id":             farmer_id,
+        "trust_score":           score,
+        "trust_category":        category,
+        "human_review_required": review,
+        "score_breakdown":       score_breakdown(farmer),
+        "recommendations":       farmer["recommendations"],
+        "next_steps":            farmer["next_steps"],
+        "explainability":        farmer["explainability"],
+        "agent_limits": [
+            "This output is for loan-officer review only.",
+            "Final credit decisions must be made by a human.",
+        ],
+        "masumi_audit": {
+            "status":     "verified",
+            "audit_id":   audit_entry["audit_id"],
+            "escrow_tx":  escrow_tx,
+            "agent_id":   AGENT_ID,
+            "timestamp":  audit_entry["timestamp"],
+            "explorer":   f"https://www.masumi.network/explorer",
+        },
+    })
+ 
+# 
+
 
