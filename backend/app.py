@@ -65,4 +65,47 @@ def score_breakdown(farmer: dict) -> list:
         {"label": "Farm Data",        "value": farmer["scores"]["farm_data"],    "weight": 15},
     ]
  
+#  serializer
+
+def serialize_farmer_summary(farmer: dict) -> dict:
+    return {
+        "id":              farmer["id"],
+        "name":            farmer["name"],
+        "location":        farmer["location"],
+        "primary_crop":    farmer["primary_crop"],
+        "cooperative":     farmer["cooperative"],
+        "loan_status":     farmer["loan_status"],
+        "credit_readiness":farmer["credit_readiness"],
+        "trust_score":     compute_trust_score(farmer),
+        "climate_risk":    farmer["climate_risk"],
+        "profile":         farmer["profile"],
+    }
+ 
+ 
+def serialize_farmer_detail(farmer: dict) -> dict:
+    score = compute_trust_score(farmer)
+    return {
+        "id":               farmer["id"],
+        "name":             farmer["name"],
+        "location":         farmer["location"],
+        "primary_crop":     farmer["primary_crop"],
+        "cooperative":      farmer["cooperative"],
+        "loan_status":      farmer["loan_status"],
+        "credit_readiness": farmer["credit_readiness"],
+        "trust_score":      score,
+        "trust_category":   trust_category(score),
+        "human_review_required": human_review_required(score),
+        "climate_risk":     farmer["climate_risk"],
+        "profile":          farmer["profile"],
+        "mobile_money_trend":  farmer["mobile_money_trend"],
+        "repayment_history":   farmer["repayment_history"],
+        "climate_exposure":    farmer["climate_exposure"],
+        "graph_insights":      farmer["graph_insights"],
+        "recommendations":     farmer["recommendations"],
+        "next_steps":          farmer["next_steps"],
+        "explainability":      farmer["explainability"],
+        "score_breakdown":     score_breakdown(farmer),
+    }
+ 
+
 
