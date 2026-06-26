@@ -1,22 +1,28 @@
-
 import uuid
 from datetime import datetime, timezone
- 
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
- 
+
 from data.mock_data import farmers, applications, climate_data
- 
+
+
+# App setup
+
 
 app = Flask(__name__)
 CORS(app)
- 
+
 
 AGENT_ID = "urn:masumi:agent:agritrust-scoring-v1"
 AGENT_VERSION = "1.0.0"
- 
+
+# In production replace with a database write.
 audit_log = []
- 
+
+
+# Scoring helpers
+
 
 SCORE_WEIGHTS = {
     "mobile_money": 0.25,
@@ -24,10 +30,10 @@ SCORE_WEIGHTS = {
     "repayment":    0.35,
     "farm_data":    0.15,
 }
- 
+
 CLIMATE_PENALTY = {"Low": 0, "Moderate": -3, "High": -6}
- 
- 
+
+
 def compute_trust_score(farmer: dict) -> int:
     """
     Weighted trust score (0–100) with a climate-risk penalty applied.
@@ -39,24 +45,24 @@ def compute_trust_score(farmer: dict) -> int:
     )
     penalty = CLIMATE_PENALTY.get(farmer["climate_risk"], 0)
     return max(40, min(98, round(raw + penalty)))
- 
- 
+
+
 def trust_category(score: int) -> str:
     if score >= 85:
         return "Strong"
     if score >= 70:
         return "Developing"
     return "Needs Improvement"
- 
- 
+
+
 def human_review_required(score: int) -> bool:
     """
     Loan officers must review borderline cases (60–84).
     The agent never makes a final approve/decline decision.
     """
     return 60 <= score < 85
- 
- 
+
+
 def score_breakdown(farmer: dict) -> list:
     return [
         {"label": "Mobile Money",     "value": farmer["scores"]["mobile_money"], "weight": 25},
@@ -64,8 +70,10 @@ def score_breakdown(farmer: dict) -> list:
         {"label": "Repayment",        "value": farmer["scores"]["repayment"],    "weight": 35},
         {"label": "Farm Data",        "value": farmer["scores"]["farm_data"],    "weight": 15},
     ]
- 
-#  serializer
+
+
+# Serialisers
+
 
 def serialize_farmer_summary(farmer: dict) -> dict:
     return {
@@ -80,8 +88,8 @@ def serialize_farmer_summary(farmer: dict) -> dict:
         "climate_risk":    farmer["climate_risk"],
         "profile":         farmer["profile"],
     }
- 
- 
+
+
 def serialize_farmer_detail(farmer: dict) -> dict:
     score = compute_trust_score(farmer)
     return {
@@ -106,10 +114,14 @@ def serialize_farmer_detail(farmer: dict) -> dict:
         "explainability":      farmer["explainability"],
         "score_breakdown":     score_breakdown(farmer),
     }
- 
+
+
+# Agent metadata (Masumi discovery)
+
+
 @app.route("/api/agent", methods=["GET"])
 def agent_info():
-        """
+    """
     Masumi discovery endpoint.
     Describes what this agent does, its pricing, and input/output contract.
     Register the URL of this endpoint when listing the agent on the network.
@@ -149,32 +161,35 @@ def agent_info():
     })
 
 
+# Service request (Masumi payment initiation)
+
+
 @app.route("/api/service-request", methods=["POST"])
 def service_request():
     """
     Step 1 of the Masumi payment flow.
     Buyer calls this to declare intent; receives a job_id and escrow
     instructions to submit on-chain before the agent does any work.
- 
+
     In a full Masumi integration this endpoint would:
       1. Call the Masumi node to create an escrow contract.
       2. Return the contract address and amount for the buyer to fund.
       3. Watch for on-chain confirmation before releasing the result.
- 
+
     Marked as MOCKED — replace with real Masumi SDK call for testnet.
     """
     payload = request.get_json(silent=True) or {}
     farmer_id = payload.get("farmer_id")
- 
+
     if not farmer_id:
         return jsonify({"error": "farmer_id is required"}), 400
- 
+
     farmer = next((f for f in farmers if f["id"] == farmer_id), None)
     if not farmer:
         return jsonify({"error": f"Farmer {farmer_id} not found"}), 404
- 
+
     job_id = str(uuid.uuid4())
- 
+
     return jsonify({
         "job_id":       job_id,
         "agent_id":     AGENT_ID,
@@ -193,6 +208,8 @@ def service_request():
         "masumi_explorer": "https://www.masumi.network/explorer",
     }), 202
 
+# Recommendations (Masumi payment gate)
+
 
 @app.route("/api/recommendations", methods=["POST"])
 def recommendations():
@@ -200,7 +217,7 @@ def recommendations():
     Step 2 of the Masumi payment flow.
     Requires a valid Masumi escrow transaction ID in the request header.
     Returns the full recommendation memo and logs an immutable audit entry.
- 
+
     Human review is required for borderline scores (60–84).
     The agent never issues a final approval or denial.
     """
@@ -214,21 +231,21 @@ def recommendations():
                 "first to initiate payment."
             ),
         }), 402
- 
+
     payload = request.get_json(silent=True) or {}
     farmer_id = payload.get("farmer_id")
- 
+
     if not farmer_id:
         return jsonify({"error": "farmer_id is required"}), 400
- 
+
     farmer = next((f for f in farmers if f["id"] == farmer_id), None)
     if not farmer:
         return jsonify({"error": f"Farmer {farmer_id} not found"}), 404
- 
+
     score    = compute_trust_score(farmer)
     category = trust_category(score)
     review   = human_review_required(score)
- 
+
     # Persist audit entry (replace list append with DB write in production)
     audit_entry = {
         "audit_id":              str(uuid.uuid4()),
@@ -241,7 +258,7 @@ def recommendations():
         "human_review_required": review,
     }
     audit_log.append(audit_entry)
- 
+
     return jsonify({
         "farmer_id":             farmer_id,
         "trust_score":           score,
@@ -264,7 +281,10 @@ def recommendations():
             "explorer":   f"https://www.masumi.network/explorer",
         },
     })
- 
+
+
+# Audit trail (Masumi auditability)
+
 
 @app.route("/api/audit", methods=["GET"])
 def get_audit_log():
@@ -277,38 +297,38 @@ def get_audit_log():
         "total_calls": len(audit_log),
         "entries":    audit_log,
     })
- 
+
 
 # Farmer endpoints
 
- 
+
 @app.route("/api/farmers", methods=["GET"])
 def get_farmers():
     return jsonify([serialize_farmer_summary(f) for f in farmers])
- 
- 
+
+
 @app.route("/api/farmers/<int:farmer_id>", methods=["GET"])
 def get_farmer(farmer_id):
     farmer = next((f for f in farmers if f["id"] == farmer_id), None)
     if not farmer:
         return jsonify({"error": f"Farmer {farmer_id} not found"}), 404
     return jsonify(serialize_farmer_detail(farmer))
- 
+
 
 # Scorecard
 
- 
+
 @app.route("/api/scorecard", methods=["GET"])
 def get_scorecard():
     total  = len(farmers)
     scores = [compute_trust_score(f) for f in farmers]
- 
+
     distribution = {
         "strong":           sum(1 for s in scores if s >= 85),
         "developing":       sum(1 for s in scores if 70 <= s < 85),
         "needs_improvement":sum(1 for s in scores if s < 70),
     }
- 
+
     return jsonify({
         "farmer_count":       total,
         "average_trust_score":round(sum(scores) / total),
@@ -322,22 +342,18 @@ def get_scorecard():
         "regional_risk":      climate_data["regional_risk"],
         "recommended_actions":climate_data["recommended_actions"],
     })
- 
+
 
 # Climate
 
- 
+
 @app.route("/api/climate", methods=["GET"])
 def get_climate():
     return jsonify(climate_data)
- 
+
 
 # Entry point
 
- 
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
- 
-
-
-
