@@ -1,0 +1,14 @@
+node_modules/
+/dist
+/build
+/.env
+/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.env
+*.log
+.vscode/
+.DS_Store
+frontend/node_modules/
+backend/__pycache__/
